@@ -3,25 +3,31 @@ use std::ops::Range;
 type FsmIndex = usize;
 
 const FSM_COLUMN_SIZE: usize = 130;
-const FSM_LINEEND: usize = 129;
+const FSM_ENDOFLINE: usize = 129;
 
-#[derive(Debug)]
+#[derive(Default, Copy, Clone)]
+struct FsmAction {
+    next: FsmIndex,
+    offset: i32,
+}
+
+
 struct FsmColumn {
-    ts: [FsmIndex; FSM_COLUMN_SIZE],
+    ts: [FsmAction; FSM_COLUMN_SIZE],
 }
 
 impl FsmColumn {
     fn new() -> Self {
         Self {
-            ts: [0; FSM_COLUMN_SIZE],
+            ts: [Default::default(); FSM_COLUMN_SIZE],
         }
     }
 
-    fn fill_range(&mut self, range: Range<char>, state: FsmIndex) {
-        for i in range {
-            self.ts[i as usize] = state;
-        }
-    }
+    // fn fill_range(&mut self, range: Range<char>, state: FsmIndex) {
+    //     for i in range {
+    //         self.ts[i as usize] = state;
+    //     }
+    // }
 }
 
 struct Regex {
@@ -40,19 +46,49 @@ impl Regex {
             match c {
                 // end of line
                 '$' => {
-                    col.ts[FSM_LINEEND] = fsm.cs.len() + 1;
+                    col.ts[FSM_ENDOFLINE] = FsmAction {
+                        next: fsm.cs.len() + 1,
+                        offset: 1
+                    };
+                    fsm.cs.push(col);
                 },
                 // match any character
                 '.' => {
                     for i in 32..127 {
-                    col.ts[i] = fsm.cs.len() + 1;
+                        col.ts[i] = FsmAction {
+                            next: fsm.cs.len() + 1,
+                            offset: 1
+                        };
+                        
                     }
+                    fsm.cs.push(col);
+                },
+                // match character preceding, any number of times
+                '*' => {
+                    let n = fsm.cs.len();
+
+                    for t in fsm.cs.last_mut().unwrap().ts.iter_mut() {
+                        if t.next == n {
+                            t.next = n - 1;
+                        } else if t.next == 0 {
+                            t.next = n;
+                            t.offset = 0;
+
+                        } else {
+                            unreachable!();
+                        }
+                    }
+                    
                 },
                 _ =>  {
-                    col.ts[c as usize] = fsm.cs.len() + 1;
+                    col.ts[c as usize] = FsmAction {
+                        next: fsm.cs.len() + 1,
+                        offset: 1
+                    };
+                    fsm.cs.push(col);
                 }
             }
-            fsm.cs.push(col);
+            
             
         }
         fsm
@@ -60,17 +96,22 @@ impl Regex {
 
     fn match_str(&self, input: &str) -> bool {
         let mut state = 1;
-        for c in input.chars() {
-            if state == 0 || state >= self.cs.len() {
-                break;
-            }
-            state = self.cs[state].ts[c as usize];
+        let mut head = 0;
+        let chars = input.chars().collect::<Vec<_>>();
+        let n = chars.len();
+        while 0 < state && state < self.cs.len() && head < n {
+            let action = self.cs[state].ts[chars[head] as usize];
+            state = action.next;
+            head = (head as  i32 + action.offset) as usize;
         }
+      
         if state == 0 {
             return false;
         }
         if state < self.cs.len() {
-            state = self.cs[state].ts[FSM_LINEEND];
+            let action = self.cs[state].ts[FSM_ENDOFLINE];
+            state = action.next;
+          
         }
         return state >= self.cs.len();
     }
@@ -79,7 +120,9 @@ impl Regex {
         for symbol in 0..FSM_COLUMN_SIZE {
             print!("{:03} =>", symbol);
             for column in self.cs.iter() {
-                print!(" {} ", column.ts[symbol]);
+                print!("({}, {}) ", 
+                    column.ts[symbol].next,
+                    column.ts[symbol].offset                );
             }
             println!();
         }
@@ -87,14 +130,14 @@ impl Regex {
 }
 
 fn main() {
-    let src = ".bc$";
+    let src = "a*bc";
     let mut regex = Regex::compile(src);
 
     regex.dump();
 
     println!("---------------------------");
 
-    let inputs = vec!["Hello", "abc", "bbc", "cbc","cbd","cbt"];
+    let inputs = vec!["Hello", "abc", "bbc", "cbc","cbd","cbt","abcd", "aabc","bccc"];
     println!("Regex: {} ", src);
     for input in inputs.iter() {
         println!("{:?} => {:?}", input, regex.match_str(input));
