@@ -11,9 +11,9 @@ struct FsmColumn {
 }
 
 impl FsmColumn {
-    fn new() -> Self  {
+    fn new() -> Self {
         Self {
-            ts: [0; FSM_COLUMN_SIZE]
+            ts: [0; FSM_COLUMN_SIZE],
         }
     }
 
@@ -26,14 +26,35 @@ impl FsmColumn {
 
 struct Regex {
     // cs -> columns
-    cs: Vec<FsmColumn>
+    cs: Vec<FsmColumn>,
 }
 
 impl Regex {
+    fn compile(src: &str) -> Self {
+        let mut fsm = Self {cs: Vec::new()};
+        fsm.cs.push(FsmColumn::new());
+
+        for c in src.chars() {
+            
+            let mut col = FsmColumn::new();
+            match c {
+                '$' => {
+                    col.ts[FSM_NEWLINE] = fsm.cs.len() + 1;
+                },
+                _ =>  {
+                    col.ts[c as usize] = fsm.cs.len() + 1;
+                }
+            }
+            fsm.cs.push(col);
+            
+        }
+        fsm
+    }
+
     fn match_str(&self, input: &str) -> bool {
         let mut state = 1;
-        for c in input.chars()  {
-            if state == 0 || state>= self.cs.len() {
+        for c in input.chars() {
+            if state == 0 || state >= self.cs.len() {
                 break;
             }
             state = self.cs[state].ts[c as usize];
@@ -46,19 +67,8 @@ impl Regex {
         }
         return state >= self.cs.len();
     }
-    
-    fn new() -> Self {
-        Self {
-        cs: Vec::new()
-        }
-    }
-
-    fn push(&mut self, column: FsmColumn) {
-        self.cs.push(column);
-    }
 
     fn dump(&self) {
-        
         for symbol in 0..FSM_COLUMN_SIZE {
             print!("{:03} =>", symbol);
             for column in self.cs.iter() {
@@ -66,28 +76,18 @@ impl Regex {
             }
             println!();
         }
-        
     }
 }
 
-
 fn main() {
-    let mut regex = Regex::new();
+    let mut regex = Regex::compile("abcsd$");
 
-    let events = vec!['a' as  usize,  'b'  as  usize,  'c' as usize, FSM_NEWLINE];
-    
-    regex.push(FsmColumn::new());
-
-    for event in events.iter(){
-        let mut col = FsmColumn::new();
-        col.ts[*event] = regex.cs.len() + 1;
-        regex.push(col);
-    }
-    
     regex.dump();
 
+    println!("---------------------------");
+
     let inputs = vec!["Hello", "abc", "abcd"];
-    for input in inputs.iter()  {
-        println!("{:?} => {:?}", input, Regex::match_str(&regex, input));
+    for input in inputs.iter() {
+        println!("{:?} => {:?}", input, regex.match_str(input));
     }
 }
