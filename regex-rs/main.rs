@@ -11,7 +11,7 @@ struct FsmAction {
     offset: i32,
 }
 
-
+#[derive(Clone)]
 struct FsmColumn {
     ts: [FsmAction; FSM_COLUMN_SIZE],
 }
@@ -63,7 +63,7 @@ impl Regex {
                     }
                     fsm.cs.push(col);
                 },
-                // match character preceding, any number of times
+                // match character preceding 0 or more times
                 '*' => {
                     let n = fsm.cs.len();
 
@@ -79,6 +79,25 @@ impl Regex {
                         }
                     }
                     
+                },
+                // match character preceding 1 or more times
+                '+' => {
+                    let n = fsm.cs.len();
+                    fsm.cs.push(fsm.cs.last().unwrap().clone());
+                    
+
+                    for t in fsm.cs.last_mut().unwrap().ts.iter_mut() {
+                        if t.next == n {
+                            // leave as is, already looped.
+                        } else if t.next == 0 {
+                            t.next = n + 1;
+                            t.offset = 0;
+
+                        } else {
+                            unreachable!();
+                        }
+                    }
+
                 },
                 _ =>  {
                     col.ts[c as usize] = FsmAction {
@@ -122,7 +141,8 @@ impl Regex {
             for column in self.cs.iter() {
                 print!("({}, {}) ", 
                     column.ts[symbol].next,
-                    column.ts[symbol].offset                );
+                    column.ts[symbol].offset
+                );
             }
             println!();
         }
@@ -130,14 +150,14 @@ impl Regex {
 }
 
 fn main() {
-    let src = "a*bc";
+    let src = "a+bc";
     let mut regex = Regex::compile(src);
 
     regex.dump();
 
     println!("---------------------------");
 
-    let inputs = vec!["Hello", "abc", "bbc", "cbc","cbd","cbt","abcd", "aabc","bccc"];
+    let inputs = vec!["Hello", "abc", "bc", "cbc","cbd","cbt","abcd", "aabc","bccc"];
     println!("Regex: {} ", src);
     for input in inputs.iter() {
         println!("{:?} => {:?}", input, regex.match_str(input));
