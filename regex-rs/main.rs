@@ -30,6 +30,23 @@ struct Regex {
 }
 
 impl Regex {
+    fn match_str(&self, input: &str) -> bool {
+        let mut state = 1;
+        for c in input.chars()  {
+            if state == 0 || state>= self.cs.len() {
+                break;
+            }
+            state = self.cs[state].ts[c as usize];
+        }
+        if state == 0 {
+            return false;
+        }
+        if state < self.cs.len() {
+            state = self.cs[state].ts[FSM_NEWLINE];
+        }
+        return state >= self.cs.len();
+    }
+    
     fn new() -> Self {
         Self {
         cs: Vec::new()
@@ -53,22 +70,6 @@ impl Regex {
     }
 }
 
-fn match_fsm (regex: &Regex, input: &str) -> bool {
-    let mut state = 1;
-    for c in input.chars()  {
-        if state == 0 || state>= regex.cs.len() {
-            break;
-        }
-        state = regex.cs[state].ts[c as usize];
-    }
-    if state == 0 {
-        return false;
-    }
-    if state < regex.cs.len() {
-        state = regex.cs[state].ts[FSM_NEWLINE];
-    }
-    return state >= regex.cs.len();
-}
 
 fn main() {
     let mut regex = Regex::new();
@@ -87,6 +88,6 @@ fn main() {
 
     let inputs = vec!["Hello", "abc", "abcd"];
     for input in inputs.iter()  {
-        println!("{:?} => {:?}", input, match_fsm(&regex, input));
+        println!("{:?} => {:?}", input, Regex::match_str(&regex, input));
     }
 }
