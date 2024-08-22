@@ -3,7 +3,7 @@ use std::ops::Range;
 type FsmIndex = usize;
 
 const FSM_COLUMN_SIZE: usize = 130;
-const FSM_NEWLINE: usize = 129;
+const FSM_LINEEND: usize = 129;
 
 #[derive(Debug)]
 struct FsmColumn {
@@ -38,8 +38,15 @@ impl Regex {
             
             let mut col = FsmColumn::new();
             match c {
+                // end of line
                 '$' => {
-                    col.ts[FSM_NEWLINE] = fsm.cs.len() + 1;
+                    col.ts[FSM_LINEEND] = fsm.cs.len() + 1;
+                },
+                // match any character
+                '.' => {
+                    for i in 32..127 {
+                    col.ts[i] = fsm.cs.len() + 1;
+                    }
                 },
                 _ =>  {
                     col.ts[c as usize] = fsm.cs.len() + 1;
@@ -63,7 +70,7 @@ impl Regex {
             return false;
         }
         if state < self.cs.len() {
-            state = self.cs[state].ts[FSM_NEWLINE];
+            state = self.cs[state].ts[FSM_LINEEND];
         }
         return state >= self.cs.len();
     }
@@ -80,13 +87,15 @@ impl Regex {
 }
 
 fn main() {
-    let mut regex = Regex::compile("abcsd$");
+    let src = ".bc$";
+    let mut regex = Regex::compile(src);
 
     regex.dump();
 
     println!("---------------------------");
 
-    let inputs = vec!["Hello", "abc", "abcd"];
+    let inputs = vec!["Hello", "abc", "bbc", "cbc","cbd","cbt"];
+    println!("Regex: {} ", src);
     for input in inputs.iter() {
         println!("{:?} => {:?}", input, regex.match_str(input));
     }
