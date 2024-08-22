@@ -24,12 +24,12 @@ impl FsmColumn {
     }
 }
 
-struct Fsm {
+struct Regex {
     // cs -> columns
     cs: Vec<FsmColumn>
 }
 
-impl Fsm {
+impl Regex {
     fn new() -> Self {
         Self {
         cs: Vec::new()
@@ -53,40 +53,40 @@ impl Fsm {
     }
 }
 
-fn match_fsm (fsm: &Fsm, input: &str) -> bool {
+fn match_fsm (regex: &Regex, input: &str) -> bool {
     let mut state = 1;
     for c in input.chars()  {
-        if state == 0 || state>= fsm.cs.len() {
+        if state == 0 || state>= regex.cs.len() {
             break;
         }
-        state = fsm.cs[state].ts[c as usize];
+        state = regex.cs[state].ts[c as usize];
     }
     if state == 0 {
         return false;
     }
-    if state < fsm.cs.len() {
-        state = fsm.cs[state].ts[FSM_NEWLINE];
+    if state < regex.cs.len() {
+        state = regex.cs[state].ts[FSM_NEWLINE];
     }
-    return state >= fsm.cs.len();
+    return state >= regex.cs.len();
 }
 
 fn main() {
-    let mut fsm = Fsm::new();
+    let mut regex = Regex::new();
 
     let events = vec!['a' as  usize,  'b'  as  usize,  'c' as usize, FSM_NEWLINE];
     
-    fsm.push(FsmColumn::new());
+    regex.push(FsmColumn::new());
 
     for event in events.iter(){
         let mut col = FsmColumn::new();
-        col.ts[*event] = fsm.cs.len() + 1;
-        fsm.push(col);
+        col.ts[*event] = regex.cs.len() + 1;
+        regex.push(col);
     }
     
-    fsm.dump();
+    regex.dump();
 
     let inputs = vec!["Hello", "abc", "abcd"];
     for input in inputs.iter()  {
-        println!("{:?} => {:?}", input, match_fsm(&fsm, input));
+        println!("{:?} => {:?}", input, match_fsm(&regex, input));
     }
 }
